@@ -1,11 +1,11 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/index.jsx',
+  entry: './src/index.jsx', // tu entry principal de React
   output: {
-    path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.js',
-    clean: true,
+    path: path.resolve(__dirname, 'build'),
+    filename: 'MPlayerNormal.js',
+    clean: true, // limpia dist/ antes de build
   },
   resolve: {
     extensions: ['.js', '.jsx'],
