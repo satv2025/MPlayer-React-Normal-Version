@@ -3,19 +3,18 @@ import { createRoot } from 'react-dom/client';
 import VideoPlayer from './components/VideoPlayer';
 import './styles.css';
 
-// Exponer función global para montar el player
-window.mountVideoPlayer = function mountVideoPlayer(elOrId, props = {}) {
-  const target = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+function mount(elOrId, props = {}) {
+  const target =
+    typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+
   if (!target) {
     console.warn('mountVideoPlayer: target not found', elOrId);
     return null;
   }
 
-  // Si ya había un root previo, desmontarlo
+  // Desmontar root previo si existía
   if (target.__vp_root) {
-    try {
-      target.__vp_root.unmount();
-    } catch (e) {}
+    target.__vp_root.unmount();
     target.__vp_root = null;
   }
 
@@ -23,15 +22,29 @@ window.mountVideoPlayer = function mountVideoPlayer(elOrId, props = {}) {
   root.render(<VideoPlayer {...props} />);
   target.__vp_root = root;
   return root;
-};
+}
 
-window.unmountVideoPlayer = function unmountVideoPlayer(elOrId) {
-  const target = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+function unmount(elOrId) {
+  const target =
+    typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+
   if (!target || !target.__vp_root) return;
-  try {
-    target.__vp_root.unmount();
-  } catch (e) {
-    console.warn('Error unmounting VideoPlayer', e);
-  }
+
+  target.__vp_root.unmount();
   target.__vp_root = null;
-};
+}
+
+// Exponer globalmente para HTML estático
+window.mountVideoPlayer = mount;
+window.unmountVideoPlayer = unmount;
+
+// Opcional: si querés un render inicial automático
+document.addEventListener('DOMContentLoaded', () => {
+  const playerDiv = document.getElementById('player');
+  if (playerDiv) {
+    mount(playerDiv, {
+      src: 'https://solargentinotv.com.ar/assets/media/videos/Trailer%20SATV%20WEB%20BETA.mp4',
+      poster: 'https://solargentinotv.com.ar/assets/media/images/poster.jpg',
+    });
+  }
+});
