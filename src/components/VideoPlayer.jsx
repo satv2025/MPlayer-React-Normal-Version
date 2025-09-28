@@ -36,13 +36,14 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   const [duration, setDuration] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const [isLive, setIsLive] = useState(false);
 
   const isYouTube = src.includes('youtube.com') || src.includes('youtu.be');
   const ytId = isYouTube ? extractYouTubeID(src) : null;
 
   // --- Video setup (MP4/HLS/DASH)
   useEffect(() => {
-    if (isYouTube) return; // skip for YouTube
+    if (isYouTube) return;
 
     const video = videoRef.current;
     if (!video) return;
@@ -64,7 +65,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   // --- Sync video state
   useEffect(() => {
     if (isYouTube) return;
-
     const v = videoRef.current;
     if (!v) return;
     v.muted = muted;
@@ -148,12 +148,15 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     ytPlayerRef.current = event.target;
     ytPlayerRef.current.setVolume(volume * 100);
     if (muted) ytPlayerRef.current.mute();
+
+    // Detectar si es live
+    const dur = ytPlayerRef.current.getDuration();
+    setIsLive(dur === 0);
   };
 
   const onYouTubeStateChange = (event) => {
     const state = event.data;
     setIsPlaying(state === 1);
-    if (state === 0) setCurrentTime(duration); // ended
   };
 
   return (
@@ -171,7 +174,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
 
       <div className="vp-overlay">
         {/* Barra de progreso */}
-        {!isYouTube && (
+        {!isYouTube || !isLive ? (
           <div className="vp-progress-bar">
             <div className="vp-progress-bg" />
             <div
@@ -182,27 +185,34 @@ export default function VideoPlayer({ src, poster, className = '' }) {
               className="vp-progress-handle"
               style={{ left: `${(currentTime / duration) * 100}%` }}
             />
-            <input
-              type="range"
-              min={0}
-              max={duration || 1}
-              step={0.01}
-              value={currentTime}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value);
-                videoRef.current.currentTime = val;
-                setCurrentTime(val);
-              }}
-              style={{
-                position: 'absolute',
-                width: '100%',
-                height: '100%',
-                top: 0,
-                left: 0,
-                opacity: 0,
-                cursor: 'pointer',
-              }}
-            />
+            {!isYouTube && (
+              <input
+                type="range"
+                min={0}
+                max={duration || 1}
+                step={0.01}
+                value={currentTime}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  videoRef.current.currentTime = val;
+                  setCurrentTime(val);
+                }}
+                style={{
+                  position: 'absolute',
+                  width: '100%',
+                  height: '100%',
+                  top: 0,
+                  left: 0,
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+              />
+            )}
+          </div>
+        ) : (
+          <div className="vp-progress-bar live">
+            <div className="vp-progress-fill" style={{ width: '100%' }} />
+            <span className="live-text">EN VIVO</span>
           </div>
         )}
 
@@ -267,7 +277,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
             </div>
 
             <div className="vp-time">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {!isLive ? `${formatTime(currentTime)} / ${formatTime(duration)}` : 'EN VIVO'}
             </div>
           </div>
 
