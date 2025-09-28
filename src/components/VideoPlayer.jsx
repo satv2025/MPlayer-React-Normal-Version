@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom/client';
 import Hls from 'hls.js';
 import dashjs from 'dashjs';
 import '../styles.css';
@@ -312,3 +313,17 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     </div>
   );
 }
+
+// ==========================================
+// Exponer la función para HTML (NO TOCAR NADA MÁS)
+import ReactDOMClient from 'react-dom/client';
+
+window.mountVideoPlayer = function (containerId, options) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    console.error('No se encontró el contenedor:', containerId);
+    return;
+  }
+  const root = ReactDOMClient.createRoot(container);
+  root.render(<VideoPlayer {...options} />);
+};
