@@ -208,28 +208,25 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     const handleKey = (e) => {
       if (!videoRef.current) return;
 
-      if (!isLive) {
-        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-        if (e.code === 'ArrowLeft') seekBackward10();
-        if (e.code === 'ArrowRight') seekForward10();
-      }
+      // Flechas y space funcionan en ambos modos
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      if (e.code === 'ArrowLeft') seekBackward10();
+      if (e.code === 'ArrowRight') seekForward10();
+      if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByArrow(0.05); }
+      if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByArrow(-0.05); }
 
-      if (isLive) {
-        if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByArrow(0.05); }
-        if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByArrow(-0.05); }
-        if (e.code === 'KeyF') toggleFullscreen();
-        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-      }
-
-      // Fullscreen en ambos modos
+      // Fullscreen siempre
       if (e.code === 'KeyF') toggleFullscreen();
       if (e.code === 'Escape') exitFullscreen();
     };
 
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isLive, volume]);
+  }, [volume]);
 
+  // ------------------------------
+  // Render
+  // ------------------------------
   return (
     <div
       ref={containerRef}
@@ -240,6 +237,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       <video ref={videoRef} poster={poster} className="vp-video" />
 
       <div className="vp-overlay">
+        {/* PROGRESS BAR */}
         <div className={`vp-progress-bar ${isLive ? 'live' : ''}`}>
           <div className="vp-progress-bg" />
           <div
