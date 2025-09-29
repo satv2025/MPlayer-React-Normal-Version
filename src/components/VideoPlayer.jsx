@@ -19,7 +19,7 @@ const ICONS = {
   vol2: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/volume/vol2.svg',
 };
 
-export default function VideoPlayer({ src, poster, className = '' }) {
+export default function VideoPlayer({ src, poster, className = '', autoplay = true }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -38,6 +38,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
 
   const [isLive, setIsLive] = useState(false);
 
+  // Cargar fuente según tipo
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -47,18 +48,36 @@ export default function VideoPlayer({ src, poster, className = '' }) {
       const hls = new Hls();
       hls.loadSource(src);
       hls.attachMedia(video);
+
+      if (autoplay) {
+        video.play().catch(err => {
+          console.warn('Autoplay bloqueado por el navegador:', err);
+        });
+      }
+
       return () => hls.destroy();
     } else if (src.endsWith('.mpd')) {
       setIsLive(false);
       const player = dashjs.MediaPlayer().create();
       player.initialize(video, src, false);
+      if (autoplay) {
+        video.play().catch(err => {
+          console.warn('Autoplay bloqueado por el navegador:', err);
+        });
+      }
       return () => player.reset();
     } else {
       setIsLive(false);
       video.src = src;
+      if (autoplay) {
+        video.play().catch(err => {
+          console.warn('Autoplay bloqueado por el navegador:', err);
+        });
+      }
     }
-  }, [src]);
+  }, [src, autoplay]);
 
+  // Mantener estado de video
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -68,6 +87,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     v.preservesPitch = pitch;
   }, [muted, volume, speed, pitch]);
 
+  // Eventos del video
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -94,11 +114,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
-      try {
-        await v.play();
-      } catch (err) {
-        console.warn(err);
-      }
+      try { await v.play(); } catch (err) { console.warn(err); }
     } else {
       v.pause();
     }
@@ -134,7 +150,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
       <video ref={videoRef} poster={poster} className="vp-video" />
 
       <div className="vp-overlay">
-        {/* Barra de progreso */}
         <div className={`vp-progress-bar ${isLive ? 'live' : ''}`}>
           <div className="vp-progress-bg" />
           <div
@@ -173,7 +188,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
           )}
         </div>
 
-        {/* Controles */}
         <div className="vp-controls">
           <div className="vp-left">
             <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
