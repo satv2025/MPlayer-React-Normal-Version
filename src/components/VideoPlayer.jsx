@@ -37,7 +37,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
   const [isLive, setIsLive] = useState(false);
 
+  // ------------------------------
   // Cargar fuente según tipo
+  // ------------------------------
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -48,31 +50,25 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       hls.loadSource(src);
       hls.attachMedia(video);
       hlsRef.current = hls;
-
-      if (autoplay) {
-        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
-      }
-
+      if (autoplay) video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       return () => hls.destroy();
     } else if (src.endsWith('.mpd')) {
       setIsLive(true);
       const player = dashjs.MediaPlayer().create();
       player.initialize(video, src, false);
       dashRef.current = player;
-      if (autoplay) {
-        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
-      }
+      if (autoplay) video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       return () => player.reset();
     } else {
       setIsLive(false);
       video.src = src;
-      if (autoplay) {
-        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
-      }
+      if (autoplay) video.play().catch(err => console.warn('Autoplay bloqueado:', err));
     }
   }, [src, autoplay]);
 
+  // ------------------------------
   // Mantener estado de video
+  // ------------------------------
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -82,7 +78,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     v.preservesPitch = pitch;
   }, [muted, volume, speed, pitch]);
 
+  // ------------------------------
   // Eventos del video
+  // ------------------------------
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -105,6 +103,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     };
   }, []);
 
+  // ------------------------------
+  // Funciones principales
+  // ------------------------------
   const togglePlay = async () => {
     const v = videoRef.current;
     if (!v) return;
@@ -125,6 +126,12 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     }
   };
 
+  const exitFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().then(() => setIsFullscreen(false));
+    }
+  };
+
   const goLive = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -136,6 +143,48 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     } else {
       v.currentTime = v.duration;
     }
+  };
+
+  const seekForward10 = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.min(v.currentTime + 10, duration);
+  };
+
+  const seekBackward10 = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = Math.max(v.currentTime - 10, 0);
+  };
+
+  const adjustVolumeByArrow = (delta) => {
+    const v = videoRef.current;
+    if (!v) return;
+    let newVol = Math.min(1, Math.max(0, volume + delta));
+    setVolume(newVol);
+    v.volume = newVol;
+    if (newVol > 0 && muted) setMuted(false);
+  };
+
+  const onClickCenter = (e) => {
+    if (e.target === videoRef.current && e.button === 0) togglePlay();
+  };
+
+  const onRightClickCenter = (e) => {
+    e.preventDefault();
+    const overlay = document.createElement('div');
+    overlay.innerText = 'MPlayer: Developed only for Sol Argentino TV';
+    overlay.style.position = 'absolute';
+    overlay.style.top = '50%';
+    overlay.style.left = '50%';
+    overlay.style.transform = 'translate(-50%, -50%)';
+    overlay.style.padding = '10px 20px';
+    overlay.style.background = 'rgba(0,0,0,0.7)';
+    overlay.style.color = '#fff';
+    overlay.style.borderRadius = '5px';
+    overlay.style.zIndex = '9999';
+    document.body.appendChild(overlay);
+    setTimeout(() => document.body.removeChild(overlay), 2000);
   };
 
   const formatTime = (t) => {
@@ -152,8 +201,42 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     return ICONS.vol2;
   };
 
+  // ------------------------------
+  // Atajos de teclado y clicks
+  // ------------------------------
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (!videoRef.current) return;
+
+      if (!isLive) {
+        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+        if (e.code === 'ArrowLeft') seekBackward10();
+        if (e.code === 'ArrowRight') seekForward10();
+      }
+
+      if (isLive) {
+        if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByArrow(0.05); }
+        if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByArrow(-0.05); }
+        if (e.code === 'KeyF') toggleFullscreen();
+        if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      }
+
+      // Fullscreen en ambos modos
+      if (e.code === 'KeyF') toggleFullscreen();
+      if (e.code === 'Escape') exitFullscreen();
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isLive, volume]);
+
   return (
-    <div ref={containerRef} className={`vp-container ${className}`}>
+    <div
+      ref={containerRef}
+      className={`vp-container ${className}`}
+      onClick={onClickCenter}
+      onContextMenu={onRightClickCenter}
+    >
       <video ref={videoRef} poster={poster} className="vp-video" />
 
       <div className="vp-overlay">
@@ -167,7 +250,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
             className="vp-progress-handle"
             style={{
               left: isLive ? '100%' : `${(currentTime / duration) * 100}%`,
-              opacity: isLive ? 0 : 1, // 👉 handle visible SOLO en VOD
+              opacity: isLive ? 0 : 1,
             }}
           />
           {!isLive && (
@@ -195,16 +278,20 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
           )}
         </div>
 
+        {/* CONTROLES */}
         <div className="vp-controls">
           <div className="vp-left">
-            <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
+            <button
+              className="vp-icon-btn vp-play-btn"
+              onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+            >
               <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
             </button>
 
             <div className="vp-volume-wrapper">
               <button
                 className="vp-icon-btn vp-volume-btn"
-                onClick={() => setMuted(!muted)}
+                onClick={(e) => { e.stopPropagation(); setMuted(!muted); }}
               >
                 <img src={volumeIcon()} alt="volume" />
               </button>
@@ -226,6 +313,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     step={0.01}
                     value={muted ? 0 : volume}
                     onChange={(e) => {
+                      e.stopPropagation();
                       const val = parseFloat(e.target.value);
                       setVolume(val);
                       if (val > 0 && muted) setMuted(false);
@@ -247,7 +335,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
             <div
               className={`vp-time ${isLive ? 'live' : ''}`}
-              onClick={isLive ? goLive : undefined}
+              onClick={(e) => { e.stopPropagation(); isLive ? goLive() : null; }}
               style={{ cursor: isLive ? 'pointer' : 'default' }}
             >
               {isLive
@@ -260,7 +348,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
             <div className="vp-settings-btn">
               <button
                 className="vp-icon-btn"
-                onClick={() => setShowSettings((s) => !s)}
+                onClick={(e) => { e.stopPropagation(); setShowSettings((s) => !s); }}
               >
                 <img src={ICONS.settings} alt="settings" />
               </button>
@@ -269,13 +357,13 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                 <div className="vp-settings-menu">
                   <button
                     className="vp-settings-item"
-                    onClick={() => setShowSpeedMenu(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(true); }}
                   >
                     Velocidad
                   </button>
                   <button
                     className="vp-settings-item"
-                    onClick={() => setShowPitchMenu(true)}
+                    onClick={(e) => { e.stopPropagation(); setShowPitchMenu(true); }}
                   >
                     Pitch
                   </button>
@@ -286,7 +374,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                 <div className="vp-submenu">
                   <button
                     className="vp-submenu-back"
-                    onClick={() => setShowSpeedMenu(false)}
+                    onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(false); }}
                   >
                     &#8592; Atrás
                   </button>
@@ -294,7 +382,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     <button
                       key={s}
                       className={`vp-settings-item ${s === speed ? 'active' : ''}`}
-                      onClick={() => setSpeed(s)}
+                      onClick={(e) => { e.stopPropagation(); setSpeed(s); }}
                     >
                       {s}x
                     </button>
@@ -306,7 +394,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                 <div className="vp-submenu">
                   <button
                     className="vp-submenu-back"
-                    onClick={() => setShowPitchMenu(false)}
+                    onClick={(e) => { e.stopPropagation(); setShowPitchMenu(false); }}
                   >
                     &#8592; Atrás
                   </button>
@@ -314,7 +402,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     <button
                       key={p}
                       className={`vp-settings-item ${p === pitch ? 'active' : ''}`}
-                      onClick={() => setPitch(p)}
+                      onClick={(e) => { e.stopPropagation(); setPitch(p); }}
                     >
                       {p}x
                     </button>
@@ -325,7 +413,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
             <button
               className="vp-icon-btn vp-fs-btn"
-              onClick={toggleFullscreen}
+              onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
             >
               <img
                 src={isFullscreen ? ICONS.windowed : ICONS.fullscreen}
