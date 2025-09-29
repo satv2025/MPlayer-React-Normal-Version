@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ReactDOM from 'react-dom/client';
 import Hls from 'hls.js';
 import dashjs from 'dashjs';
 import '../styles.css';
@@ -37,21 +36,26 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   const [speed, setSpeed] = useState(1);
   const [pitch, setPitch] = useState(1);
 
+  const [isLive, setIsLive] = useState(false);
+
   // Cargar fuente según tipo
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     if (src.endsWith('.m3u8') && Hls.isSupported()) {
+      setIsLive(true);
       const hls = new Hls();
       hls.loadSource(src);
       hls.attachMedia(video);
       return () => hls.destroy();
     } else if (src.endsWith('.mpd')) {
+      setIsLive(false);
       const player = dashjs.MediaPlayer().create();
       player.initialize(video, src, false);
       return () => player.reset();
     } else {
+      setIsLive(false);
       video.src = src;
     }
   }, [src]);
@@ -90,6 +94,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   }, []);
 
   const togglePlay = async () => {
+    if (isLive) return; // No permitir play/pause en live
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
@@ -114,6 +119,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   };
 
   const formatTime = (t) => {
+    if (isLive) return '● EN VIVO';
     if (!isFinite(t)) return '0:00';
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
@@ -137,44 +143,45 @@ export default function VideoPlayer({ src, poster, className = '' }) {
           <div className="vp-progress-bg" />
           <div
             className="vp-progress-fill"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
+            style={{ width: isLive ? '100%' : `${(currentTime / duration) * 100}%` }}
           />
           <div
             className="vp-progress-handle"
-            style={{ left: `${(currentTime / duration) * 100}%` }}
+            style={{ left: isLive ? '100%' : `${(currentTime / duration) * 100}%` }}
           />
-          <input
-            type="range"
-            min={0}
-            max={duration || 1}
-            step={0.01}
-            value={currentTime}
-            onChange={(e) => {
-              const val = parseFloat(e.target.value);
-              videoRef.current.currentTime = val;
-              setCurrentTime(val);
-            }}
-            style={{
-              position: 'absolute',
-              width: '100%',
-              height: '100%',
-              top: 0,
-              left: 0,
-              opacity: 0,
-              cursor: 'pointer',
-            }}
-          />
+          {!isLive && (
+            <input
+              type="range"
+              min={0}
+              max={duration || 1}
+              step={0.01}
+              value={currentTime}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value);
+                videoRef.current.currentTime = val;
+                setCurrentTime(val);
+              }}
+              style={{
+                position: 'absolute',
+                width: '100%',
+                height: '100%',
+                top: 0,
+                left: 0,
+                opacity: 0,
+                cursor: 'pointer',
+              }}
+            />
+          )}
         </div>
 
         {/* Controles */}
         <div className="vp-controls">
           <div className="vp-left">
-            <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
-              <img
-                src={isPlaying ? ICONS.pause : ICONS.play}
-                alt="play/pause"
-              />
-            </button>
+            {!isLive && (
+              <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
+                <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
+              </button>
+            )}
 
             <div className="vp-volume-wrapper">
               <button
@@ -194,40 +201,40 @@ export default function VideoPlayer({ src, poster, className = '' }) {
                     className="vp-volume-handle"
                     style={{ left: muted ? '0%' : `${volume * 100}%` }}
                   />
-
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.01}
-                    value={muted ? 0 : volume}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      setVolume(val);
-                      if (val > 0 && muted) setMuted(false);
-                      videoRef.current.volume = val;
-                    }}
-                    style={{
-                      position: 'absolute',
-                      width: '100%',
-                      height: '100%',
-                      top: 0,
-                      left: 0,
-                      opacity: 0,
-                      cursor: 'pointer',
-                    }}
-                  />
+                  {!isLive && (
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={muted ? 0 : volume}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value);
+                        setVolume(val);
+                        if (val > 0 && muted) setMuted(false);
+                        videoRef.current.volume = val;
+                      }}
+                      style={{
+                        position: 'absolute',
+                        width: '100%',
+                        height: '100%',
+                        top: 0,
+                        left: 0,
+                        opacity: 0,
+                        cursor: 'pointer',
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="vp-time">
-              {formatTime(currentTime)} / {formatTime(duration)}
+              {formatTime(currentTime)} {!isLive && `/ ${formatTime(duration)}`}
             </div>
           </div>
 
           <div className="vp-right">
-            {/* Settings */}
             <div className="vp-settings-btn">
               <button
                 className="vp-icon-btn"
@@ -264,9 +271,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
                   {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
                     <button
                       key={s}
-                      className={`vp-settings-item ${
-                        s === speed ? 'active' : ''
-                      }`}
+                      className={`vp-settings-item ${s === speed ? 'active' : ''}`}
                       onClick={() => setSpeed(s)}
                     >
                       {s}x
@@ -286,9 +291,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
                   {[0.5, 0.75, 1, 1.25, 1.5, 2].map((p) => (
                     <button
                       key={p}
-                      className={`vp-settings-item ${
-                        p === pitch ? 'active' : ''
-                      }`}
+                      className={`vp-settings-item ${p === pitch ? 'active' : ''}`}
                       onClick={() => setPitch(p)}
                     >
                       {p}x
@@ -315,7 +318,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
 }
 
 // ==========================================
-// Exponer la función para HTML (NO TOCAR NADA MÁS)
+// Exponer la función para HTML
 import ReactDOMClient from 'react-dom/client';
 
 window.mountVideoPlayer = function (containerId, options) {
