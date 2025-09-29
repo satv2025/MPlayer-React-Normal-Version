@@ -139,11 +139,10 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
   };
 
   const formatTime = (t) => {
-    if (isLive) return 'EN VIVO';
-    if (!isFinite(t)) return '0:00';
+    if (!isFinite(t)) return '00:00';
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
-    return `${m}:${String(s).padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   const volumeIcon = () => {
@@ -168,7 +167,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
             className="vp-progress-handle"
             style={{
               left: isLive ? '100%' : `${(currentTime / duration) * 100}%`,
-              opacity: 0,
+              opacity: isLive ? 0 : 1, // 👉 handle visible SOLO en VOD
             }}
           />
           {!isLive && (
@@ -251,7 +250,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
               onClick={isLive ? goLive : undefined}
               style={{ cursor: isLive ? 'pointer' : 'default' }}
             >
-              {formatTime(currentTime)}
+              {isLive
+                ? 'EN VIVO'
+                : `${formatTime(currentTime)} / ${formatTime(duration)}`}
             </div>
           </div>
 
