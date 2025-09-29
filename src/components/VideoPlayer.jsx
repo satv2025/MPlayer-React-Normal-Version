@@ -5,14 +5,10 @@ import '../styles.css';
 
 const ICONS = {
   play: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/play.svg',
-  pause:
-    'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/pause.svg',
-  fullscreen:
-    'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/fullscreen.svg',
-  windowed:
-    'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/windowed.svg',
-  settings:
-    'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/settings.svg',
+  pause: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/pause.svg',
+  fullscreen: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/fullscreen.svg',
+  windowed: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/windowed.svg',
+  settings: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/settings.svg',
   mute: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/volume/mute.svg',
   vol0: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/volume/vol0.svg',
   vol1: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/volume/vol1.svg',
@@ -22,6 +18,9 @@ const ICONS = {
 export default function VideoPlayer({ src, poster, className = '', autoplay = true }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+
+  const hlsRef = useRef(null);
+  const dashRef = useRef(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
@@ -48,31 +47,27 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       const hls = new Hls();
       hls.loadSource(src);
       hls.attachMedia(video);
+      hlsRef.current = hls;
 
       if (autoplay) {
-        video.play().catch(err => {
-          console.warn('Autoplay bloqueado por el navegador:', err);
-        });
+        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       }
 
       return () => hls.destroy();
     } else if (src.endsWith('.mpd')) {
-      setIsLive(false);
+      setIsLive(true);
       const player = dashjs.MediaPlayer().create();
       player.initialize(video, src, false);
+      dashRef.current = player;
       if (autoplay) {
-        video.play().catch(err => {
-          console.warn('Autoplay bloqueado por el navegador:', err);
-        });
+        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       }
       return () => player.reset();
     } else {
       setIsLive(false);
       video.src = src;
       if (autoplay) {
-        video.play().catch(err => {
-          console.warn('Autoplay bloqueado por el navegador:', err);
-        });
+        video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       }
     }
   }, [src, autoplay]);
@@ -127,6 +122,19 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       el.requestFullscreen().then(() => setIsFullscreen(true));
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false));
+    }
+  };
+
+  const goLive = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (hlsRef.current && hlsRef.current.liveSyncPosition) {
+      v.currentTime = hlsRef.current.liveSyncPosition;
+    } else if (dashRef.current) {
+      const duration = dashRef.current.duration();
+      dashRef.current.seek(duration);
+    } else {
+      v.currentTime = v.duration;
     }
   };
 
@@ -212,35 +220,39 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     className="vp-volume-handle"
                     style={{ left: muted ? '0%' : `${volume * 100}%` }}
                   />
-                  {!isLive && (
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.01}
-                      value={muted ? 0 : volume}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        setVolume(val);
-                        if (val > 0 && muted) setMuted(false);
-                        videoRef.current.volume = val;
-                      }}
-                      style={{
-                        position: 'absolute',
-                        width: '100%',
-                        height: '100%',
-                        top: 0,
-                        left: 0,
-                        opacity: 0,
-                        cursor: 'pointer',
-                      }}
-                    />
-                  )}
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={muted ? 0 : volume}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setVolume(val);
+                      if (val > 0 && muted) setMuted(false);
+                      videoRef.current.volume = val;
+                    }}
+                    style={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      top: 0,
+                      left: 0,
+                      opacity: 0,
+                      cursor: 'pointer',
+                    }}
+                  />
                 </div>
               </div>
             </div>
 
-            <div className={`vp-time ${isLive ? 'live' : ''}`}>{formatTime(currentTime)}</div>
+            <div
+              className={`vp-time ${isLive ? 'live' : ''}`}
+              onClick={isLive ? goLive : undefined}
+              style={{ cursor: isLive ? 'pointer' : 'default' }}
+            >
+              {formatTime(currentTime)}
+            </div>
           </div>
 
           <div className="vp-right">
@@ -339,19 +351,3 @@ window.mountVideoPlayer = function (containerId, options) {
   const root = ReactDOMClient.createRoot(container);
   root.render(<VideoPlayer {...options} />);
 };
-
-// ==========================================
-// 🚀 Nuevo: Montaje automático
-document.addEventListener('DOMContentLoaded', () => {
-  const containers = document.querySelectorAll('[data-video-player]');
-  containers.forEach(el => {
-    const options = {
-      src: el.getAttribute('data-src'),
-      poster: el.getAttribute('data-poster') || '',
-      autoplay: el.getAttribute('data-autoplay') !== 'false',
-      className: el.getAttribute('data-class') || '',
-    };
-    const root = ReactDOMClient.createRoot(el);
-    root.render(<VideoPlayer {...options} />);
-  });
-});
