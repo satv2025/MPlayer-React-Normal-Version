@@ -7,7 +7,6 @@ const ICONS = {
   play: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/play.svg',
   pause:
     'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/pause.svg',
-  stop: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/stop.svg',
   fullscreen:
     'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/fullscreen.svg',
   windowed:
@@ -92,7 +91,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   }, []);
 
   const togglePlay = async () => {
-    if (isLive) return;
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
@@ -117,7 +115,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   };
 
   const formatTime = (t) => {
-    if (isLive) return '● EN VIVO';
+    if (isLive) return 'EN VIVO';
     if (!isFinite(t)) return '0:00';
     const m = Math.floor(t / 60);
     const s = Math.floor(t % 60);
@@ -178,16 +176,9 @@ export default function VideoPlayer({ src, poster, className = '' }) {
         {/* Controles */}
         <div className="vp-controls">
           <div className="vp-left">
-            {/* Botón live/desactivado */}
-            {isLive ? (
-              <button className="vp-icon-btn vp-play-btn" disabled>
-                <img src={ICONS.stop} alt="live-stop" />
-              </button>
-            ) : (
-              <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
-                <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
-              </button>
-            )}
+            <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
+              <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
+            </button>
 
             <div className="vp-volume-wrapper">
               <button
@@ -235,7 +226,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
               </div>
             </div>
 
-            <div className="vp-time">{formatTime(currentTime)}</div>
+            <div className={`vp-time ${isLive ? 'live' : ''}`}>{formatTime(currentTime)}</div>
           </div>
 
           <div className="vp-right">
