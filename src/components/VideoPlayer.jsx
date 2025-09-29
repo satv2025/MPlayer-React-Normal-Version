@@ -7,6 +7,7 @@ const ICONS = {
   play: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/play.svg',
   pause:
     'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/pause.svg',
+  stop: 'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/stop.svg',
   fullscreen:
     'https://static.solargentinotv.com.ar/mplayer-normal/icons/svg/fullscreen.svg',
   windowed:
@@ -139,7 +140,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
 
       <div className="vp-overlay">
         {/* Barra de progreso */}
-        <div className="vp-progress-bar">
+        <div className={`vp-progress-bar ${isLive ? 'live' : ''}`}>
           <div className="vp-progress-bg" />
           <div
             className="vp-progress-fill"
@@ -147,7 +148,10 @@ export default function VideoPlayer({ src, poster, className = '' }) {
           />
           <div
             className="vp-progress-handle"
-            style={{ left: isLive ? '100%' : `${(currentTime / duration) * 100}%` }}
+            style={{
+              left: isLive ? '100%' : `${(currentTime / duration) * 100}%`,
+              opacity: 0, // handle invisible por defecto en live
+            }}
           />
           {!isLive && (
             <input
@@ -177,7 +181,11 @@ export default function VideoPlayer({ src, poster, className = '' }) {
         {/* Controles */}
         <div className="vp-controls">
           <div className="vp-left">
-            {!isLive && (
+            {isLive ? (
+              <button className="vp-icon-btn vp-play-btn">
+                <img src={ICONS.stop} alt="live-stop" />
+              </button>
+            ) : (
               <button className="vp-icon-btn vp-play-btn" onClick={togglePlay}>
                 <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
               </button>
