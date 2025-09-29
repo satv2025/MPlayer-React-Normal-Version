@@ -339,3 +339,19 @@ window.mountVideoPlayer = function (containerId, options) {
   const root = ReactDOMClient.createRoot(container);
   root.render(<VideoPlayer {...options} />);
 };
+
+// ==========================================
+// 🚀 Nuevo: Montaje automático
+document.addEventListener('DOMContentLoaded', () => {
+  const containers = document.querySelectorAll('[data-video-player]');
+  containers.forEach(el => {
+    const options = {
+      src: el.getAttribute('data-src'),
+      poster: el.getAttribute('data-poster') || '',
+      autoplay: el.getAttribute('data-autoplay') !== 'false',
+      className: el.getAttribute('data-class') || '',
+    };
+    const root = ReactDOMClient.createRoot(el);
+    root.render(<VideoPlayer {...options} />);
+  });
+});
