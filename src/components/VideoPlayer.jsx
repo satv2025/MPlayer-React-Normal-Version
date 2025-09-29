@@ -39,7 +39,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
 
   const [isLive, setIsLive] = useState(false);
 
-  // Cargar fuente según tipo
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -61,7 +60,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     }
   }, [src]);
 
-  // Sincronizar estado
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -71,7 +69,6 @@ export default function VideoPlayer({ src, poster, className = '' }) {
     v.preservesPitch = pitch;
   }, [muted, volume, speed, pitch]);
 
-  // Eventos del video
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -95,7 +92,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
   }, []);
 
   const togglePlay = async () => {
-    if (isLive) return; // No permitir play/pause en live
+    if (isLive) return;
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
@@ -150,7 +147,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
             className="vp-progress-handle"
             style={{
               left: isLive ? '100%' : `${(currentTime / duration) * 100}%`,
-              opacity: 0, // handle invisible por defecto en live
+              opacity: 0,
             }}
           />
           {!isLive && (
@@ -181,8 +178,9 @@ export default function VideoPlayer({ src, poster, className = '' }) {
         {/* Controles */}
         <div className="vp-controls">
           <div className="vp-left">
+            {/* Botón live/desactivado */}
             {isLive ? (
-              <button className="vp-icon-btn vp-play-btn">
+              <button className="vp-icon-btn vp-play-btn" disabled>
                 <img src={ICONS.stop} alt="live-stop" />
               </button>
             ) : (
@@ -237,9 +235,7 @@ export default function VideoPlayer({ src, poster, className = '' }) {
               </div>
             </div>
 
-            <div className="vp-time">
-              {formatTime(currentTime)} {!isLive && `/ ${formatTime(duration)}`}
-            </div>
+            <div className="vp-time">{formatTime(currentTime)}</div>
           </div>
 
           <div className="vp-right">
