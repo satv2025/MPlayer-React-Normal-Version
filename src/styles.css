@@ -1,4 +1,4 @@
-@import url('https://solargentinotv.com.ar/assets/fonts/Gilroy/Gilroy.css');
+@import url(https://solargentinotv.com.ar/assets/fonts/Gilroy/Gilroy.css);
 
 * {
   font-family: 'Gilroy' !important;
@@ -99,7 +99,7 @@
     hue-rotate(184deg) brightness(103%) contrast(103%);
 }
 
-/* --- Barra de volumen (vertical) --- */
+/* --- Volume Wrapper --- */
 .vp-volume-wrapper {
   position: relative;
   display: flex;
@@ -115,29 +115,53 @@
   justify-content: center;
 }
 
-.vp-volume-bar {
+/* --- Barra interna vertical del volumen --- */
+.vp-volume-container {
+  user-select: none;
+  color: white;
+  font-family: 'Gilroy' !important;
+  box-sizing: border-box;
   position: absolute;
-  bottom: 40px;
-  left: 50%;
-  width: 100px;
-  height: 4px;
-  cursor: pointer;
-  transform-origin: left bottom;
-  background: rgba(0, 0, 0, 0.2);
-  display: none;
+  bottom: 6.1em;
+  left: 1em;
+  width: 165px;
+  height: 32px;
+  transform: translateX(-50%) rotate(-90deg);
+  background: #003964;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8em 1.2em;
   z-index: 1;
+  transition: opacity .25s ease;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.vp-volume-wrapper:hover .vp-volume-bar {
-  display: block;
+.vp-volume-container.open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
+.vp-volume-container.closed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vp-volume-container .vp-volume-bar {
+  position: relative;
+  width: 125px;
+  height: 9px;
+  margin-top: -0.1em;
+}
+
+/* Partes internas del slider */
 .vp-volume-bg {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 0.57em;
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -145,20 +169,31 @@
   position: absolute;
   top: 0;
   left: 0;
-  height: 6px;
+  height: 0.57em;
   background: #0078d4;
   transition: width 0.1s linear;
 }
 
+/* 1) Aseguramos que el handle reciba eventos */
 .vp-volume-handle {
   position: absolute;
   top: 50%;
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   background: #0078d4;
   border-radius: 50%;
-  transform: translate(-50%, -50%) rotate(90deg);
-  transition: left 0.1s linear;
+  transform: translate(-50%, -50%);
+  transition:
+    left 0.1s linear,
+    width 0.1s ease,
+    height 0.1s ease;
+  pointer-events: auto;
+}
+
+/* 2) El hover se detecta en TODA la barra, no solo en la “zona rara” */
+.vp-volume-bar:hover .vp-volume-handle {
+  width: 24px;
+  height: 24px;
 }
 
 /* --- Tiempo --- */
@@ -226,7 +261,6 @@
   animation: slideUpFade 0.25s ease-out;
 }
 
-/* Botón de “atrás” */
 .vp-submenu-back {
   display: flex;
   align-items: center;
@@ -235,25 +269,13 @@
   font-size: 14px;
   cursor: pointer;
   color: #fff;
-  background: #00000000;
+  background: transparent;
   border: none;
 }
 
 .vp-submenu-back:hover {
   background: rgba(0, 120, 212, 0.7);
   border-radius: 4px;
-}
-
-/* Items del submenú */
-.vp-submenu .vp-settings-item {
-  font-size: 13px;
-  padding: 4px 8px;
-}
-
-/* Ocultar menú */
-.vp-menu-hidden {
-  display: none;
-  animation: none;
 }
 
 /* --- Media queries --- */
@@ -275,12 +297,6 @@
   .vp-settings-menu,
   .vp-submenu {
     min-width: 100px;
-    font-size: 12px;
-  }
-  .vp-submenu .vp-settings-item,
-  .vp-submenu-back {
-    font-size: 12px;
-    padding: 3px 6px;
   }
 }
 
@@ -293,56 +309,19 @@
     height: 10px;
     top: -3px;
   }
-  .vp-volume-bar {
-    width: 70px;
-  }
 }
 
-/* --- Contenedor con fondo para slider de volumen --- */
-.vp-volume-container {
-  position: absolute;
-  bottom: 6.1em;
-  left: -4em;
-  width: 164px;
-  height: 20px;
-  transform: translateX(-50%);
-  background: #003964;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.8em;
-  padding-right: 1.2em;
-  padding-left: 1.2em;
-  z-index: 1;
-  display: none;
-  transform: rotate(-90deg);
+/* --- Controles visibles/ocultos --- */
+.vp-controls.hidden,
+.vp-overlay.hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity .3s ease;
 }
 
-.vp-volume-wrapper:hover .vp-volume-container {
-  display: flex;
-}
-
-.vp-volume-container .vp-volume-bar {
-  position: relative;
-  bottom: 0;
-  left: 0;
-  width: 131px;
-  height: 6px;
-  z-index: 2;
-}
-
-.vp-play-btn,
-.vp-fs-btn {
-  margin-top: 0.28em;
-}
-
-.vp-controls {
-  margin-top: 0.1em;
-  padding-top: 0.5em;
-  padding-bottom: 0.7em;
-}
-
-.vp-play-btn {
-  margin-top: 0.2em;
+.vp-controls.visible,
+.vp-overlay.visible {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transition: opacity .3s ease;
 }

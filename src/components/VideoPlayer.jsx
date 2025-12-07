@@ -37,9 +37,45 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
   const [isLive, setIsLive] = useState(false);
 
-  // ------------------------------
-  // Cargar fuente según tipo
-  // ------------------------------
+  // === Control de visibilidad de controles ===
+  const [showControls, setShowControls] = useState(true);
+  const hideControlsTimer = useRef(null);
+
+  const startHideControlsTimer = () => {
+    clearTimeout(hideControlsTimer.current);
+    hideControlsTimer.current = setTimeout(() => {
+      setShowControls(false);
+    }, 5000);
+  };
+
+  const showControlsNow = () => {
+    setShowControls(true);
+    startHideControlsTimer();
+  };
+
+  // === CONTROL GLOBAL DEL VOLUME SLIDER ===
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const volumeHideTimer = useRef(null);
+
+  const openVolumeSlider = () => {
+    clearTimeout(volumeHideTimer.current);
+    setShowVolumeSlider(true);
+  };
+
+  const keepVolumeSliderOpen = () => {
+    clearTimeout(volumeHideTimer.current);
+  };
+
+  const closeVolumeSliderDelayed = () => {
+    clearTimeout(volumeHideTimer.current);
+    volumeHideTimer.current = setTimeout(() => {
+      setShowVolumeSlider(false);
+    }, 400); // delay para permitir mover el mouse al slider
+  };
+
+  // =============================================================
+  // FUENTE: HLS / DASH / MP4
+  // =============================================================
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -52,6 +88,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       hlsRef.current = hls;
       if (autoplay) video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       return () => hls.destroy();
+
     } else if (src.endsWith('.mpd')) {
       setIsLive(true);
       const player = dashjs.MediaPlayer().create();
@@ -59,6 +96,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
       dashRef.current = player;
       if (autoplay) video.play().catch(err => console.warn('Autoplay bloqueado:', err));
       return () => player.reset();
+
     } else {
       setIsLive(false);
       video.src = src;
@@ -66,9 +104,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     }
   }, [src, autoplay]);
 
-  // ------------------------------
-  // Mantener estado de video
-  // ------------------------------
+  // =============================================================
+  // APLICAR ESTADOS
+  // =============================================================
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -78,9 +116,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     v.preservesPitch = pitch;
   }, [muted, volume, speed, pitch]);
 
-  // ------------------------------
-  // Eventos del video
-  // ------------------------------
+  // =============================================================
+  // EVENTOS DEL VIDEO
+  // =============================================================
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -103,17 +141,36 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     };
   }, []);
 
-  // ------------------------------
-  // Funciones principales
-  // ------------------------------
+  // =============================================================
+  // Auto-hide de controles
+  // =============================================================
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const onMouseMove = () => showControlsNow();
+    const onMouseLeave = () => setShowControls(false);
+
+    container.addEventListener("mousemove", onMouseMove);
+    container.addEventListener("mouseleave", onMouseLeave);
+
+    startHideControlsTimer();
+
+    return () => {
+      container.removeEventListener("mousemove", onMouseMove);
+      container.removeEventListener("mouseleave", onMouseLeave);
+    };
+  }, []);
+
+  // =============================================================
+  // FUNCIONES
+  // =============================================================
   const togglePlay = async () => {
     const v = videoRef.current;
     if (!v) return;
     if (v.paused) {
-      try { await v.play(); } catch (err) { console.warn(err); }
-    } else {
-      v.pause();
-    }
+      try { await v.play(); } catch (err) {}
+    } else v.pause();
   };
 
   const toggleFullscreen = () => {
@@ -135,11 +192,12 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
   const goLive = () => {
     const v = videoRef.current;
     if (!v) return;
+
     if (hlsRef.current && hlsRef.current.liveSyncPosition) {
       v.currentTime = hlsRef.current.liveSyncPosition;
     } else if (dashRef.current) {
-      const duration = dashRef.current.duration();
-      dashRef.current.seek(duration);
+      const dur = dashRef.current.duration();
+      dashRef.current.seek(dur);
     } else {
       v.currentTime = v.duration;
     }
@@ -147,19 +205,16 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
   const seekForward10 = () => {
     const v = videoRef.current;
-    if (!v) return;
     v.currentTime = Math.min(v.currentTime + 10, duration);
   };
 
   const seekBackward10 = () => {
     const v = videoRef.current;
-    if (!v) return;
     v.currentTime = Math.max(v.currentTime - 10, 0);
   };
 
   const adjustVolumeByArrow = (delta) => {
     const v = videoRef.current;
-    if (!v) return;
     let newVol = Math.min(1, Math.max(0, volume + delta));
     setVolume(newVol);
     v.volume = newVol;
@@ -201,32 +256,9 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     return ICONS.vol2;
   };
 
-  // ------------------------------
-  // Atajos de teclado y clicks
-  // ------------------------------
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (!videoRef.current) return;
-
-      // Flechas y space funcionan en ambos modos
-      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-      if (e.code === 'ArrowLeft') seekBackward10();
-      if (e.code === 'ArrowRight') seekForward10();
-      if (e.code === 'ArrowUp') { e.preventDefault(); adjustVolumeByArrow(0.05); }
-      if (e.code === 'ArrowDown') { e.preventDefault(); adjustVolumeByArrow(-0.05); }
-
-      // Fullscreen siempre
-      if (e.code === 'KeyF') toggleFullscreen();
-      if (e.code === 'Escape') exitFullscreen();
-    };
-
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [volume]);
-
-  // ------------------------------
-  // Render
-  // ------------------------------
+  // =============================================================
+  // RENDER
+  // =============================================================
   return (
     <div
       ref={containerRef}
@@ -236,7 +268,8 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
     >
       <video ref={videoRef} poster={poster} className="vp-video" />
 
-      <div className="vp-overlay">
+      <div className={`vp-overlay ${showControls ? "visible" : "hidden"}`}>
+
         {/* PROGRESS BAR */}
         <div className={`vp-progress-bar ${isLive ? 'live' : ''}`}>
           <div className="vp-progress-bg" />
@@ -277,8 +310,10 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
         </div>
 
         {/* CONTROLES */}
-        <div className="vp-controls">
+        <div className={`vp-controls ${showControls ? 'visible' : 'hidden'}`}>
           <div className="vp-left">
+
+            {/* PLAY */}
             <button
               className="vp-icon-btn vp-play-btn"
               onClick={(e) => { e.stopPropagation(); togglePlay(); }}
@@ -286,14 +321,24 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
               <img src={isPlaying ? ICONS.pause : ICONS.play} alt="play/pause" />
             </button>
 
-            <div className="vp-volume-wrapper">
+            {/* VOLUME SYSTEM FIXED */}
+            <div
+              className="vp-volume-wrapper"
+              onMouseEnter={openVolumeSlider}
+              onMouseLeave={closeVolumeSliderDelayed}
+            >
               <button
                 className="vp-icon-btn vp-volume-btn"
                 onClick={(e) => { e.stopPropagation(); setMuted(!muted); }}
               >
                 <img src={volumeIcon()} alt="volume" />
               </button>
-              <div className="vp-volume-container">
+
+              <div
+                className={`vp-volume-container ${showVolumeSlider ? "open" : "closed"}`}
+                onMouseEnter={keepVolumeSliderOpen}
+                onMouseLeave={closeVolumeSliderDelayed}
+              >
                 <div className="vp-volume-bar">
                   <div className="vp-volume-bg" />
                   <div
@@ -304,6 +349,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     className="vp-volume-handle"
                     style={{ left: muted ? '0%' : `${volume * 100}%` }}
                   />
+
                   <input
                     type="range"
                     min={0}
@@ -311,7 +357,6 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
                     step={0.01}
                     value={muted ? 0 : volume}
                     onChange={(e) => {
-                      e.stopPropagation();
                       const val = parseFloat(e.target.value);
                       setVolume(val);
                       if (val > 0 && muted) setMuted(false);
@@ -331,38 +376,34 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
               </div>
             </div>
 
+            {/* TIME */}
             <div
               className={`vp-time ${isLive ? 'live' : ''}`}
               onClick={(e) => { e.stopPropagation(); isLive ? goLive() : null; }}
               style={{ cursor: isLive ? 'pointer' : 'default' }}
             >
-              {isLive
-                ? 'EN VIVO'
-                : `${formatTime(currentTime)} / ${formatTime(duration)}`}
+              {isLive ? 'EN VIVO' : `${formatTime(currentTime)} / ${formatTime(duration)}`}
             </div>
           </div>
 
+          {/* RIGHT CONTROLS */}
           <div className="vp-right">
+
+            {/* SETTINGS */}
             <div className="vp-settings-btn">
               <button
                 className="vp-icon-btn"
-                onClick={(e) => { e.stopPropagation(); setShowSettings((s) => !s); }}
+                onClick={(e) => { e.stopPropagation(); setShowSettings(s => !s); }}
               >
                 <img src={ICONS.settings} alt="settings" />
               </button>
 
               {showSettings && !showSpeedMenu && !showPitchMenu && (
                 <div className="vp-settings-menu">
-                  <button
-                    className="vp-settings-item"
-                    onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(true); }}
-                  >
+                  <button className="vp-settings-item" onClick={() => setShowSpeedMenu(true)}>
                     Velocidad
                   </button>
-                  <button
-                    className="vp-settings-item"
-                    onClick={(e) => { e.stopPropagation(); setShowPitchMenu(true); }}
-                  >
+                  <button className="vp-settings-item" onClick={() => setShowPitchMenu(true)}>
                     Pitch
                   </button>
                 </div>
@@ -370,17 +411,14 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
               {showSpeedMenu && (
                 <div className="vp-submenu">
-                  <button
-                    className="vp-submenu-back"
-                    onClick={(e) => { e.stopPropagation(); setShowSpeedMenu(false); }}
-                  >
-                    &#8592; Atrás
+                  <button className="vp-submenu-back" onClick={() => setShowSpeedMenu(false)}>
+                    ← Atrás
                   </button>
-                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((s) => (
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map(s => (
                     <button
                       key={s}
                       className={`vp-settings-item ${s === speed ? 'active' : ''}`}
-                      onClick={(e) => { e.stopPropagation(); setSpeed(s); }}
+                      onClick={() => setSpeed(s)}
                     >
                       {s}x
                     </button>
@@ -390,17 +428,14 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
 
               {showPitchMenu && (
                 <div className="vp-submenu">
-                  <button
-                    className="vp-submenu-back"
-                    onClick={(e) => { e.stopPropagation(); setShowPitchMenu(false); }}
-                  >
-                    &#8592; Atrás
+                  <button className="vp-submenu-back" onClick={() => setShowPitchMenu(false)}>
+                    ← Atrás
                   </button>
-                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map((p) => (
+                  {[0.5, 0.75, 1, 1.25, 1.5, 2].map(p => (
                     <button
                       key={p}
                       className={`vp-settings-item ${p === pitch ? 'active' : ''}`}
-                      onClick={(e) => { e.stopPropagation(); setPitch(p); }}
+                      onClick={() => setPitch(p)}
                     >
                       {p}x
                     </button>
@@ -409,6 +444,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
               )}
             </div>
 
+            {/* FULLSCREEN */}
             <button
               className="vp-icon-btn vp-fs-btn"
               onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
@@ -420,6 +456,7 @@ export default function VideoPlayer({ src, poster, className = '', autoplay = tr
             </button>
           </div>
         </div>
+
       </div>
     </div>
   );
